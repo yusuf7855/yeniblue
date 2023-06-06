@@ -33,6 +33,7 @@ class Anasayfa extends StatefulWidget {
 class _AnasayfaState extends State<Anasayfa> {
   bool kontrol = false;
   var stateD = "aszz";
+  BluetoothConnection? connection;
 
   @override
   void initState() {
@@ -46,10 +47,9 @@ class _AnasayfaState extends State<Anasayfa> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
-    var ekranBilgisi =MediaQuery.of(context);
+    var ekranBilgisi = MediaQuery.of(context);
     final double ekranYuksekligi = ekranBilgisi.size.height;
     final double ekranGenisligi = ekranBilgisi.size.width;
     return Scaffold(
@@ -59,7 +59,6 @@ class _AnasayfaState extends State<Anasayfa> {
       ),
       body: Center(
         child: Column(
-
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
@@ -73,19 +72,21 @@ class _AnasayfaState extends State<Anasayfa> {
                 disableBluetooth();
               },
               child: const Text("BLUETOOTH KAPAT"),
-
             ),
-
-
             ElevatedButton(
               onPressed: () {
                 enableBluetooth();
-              }, child: const Text("BLUETOOTH AÇ"),
-
+              },
+              child: const Text("BLUETOOTH AÇ"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                sendBluetoothData(context);
+              },
+              child: const Text("Veriyi Yolla"),
             ),
             Padding(
-              padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).size.height * 0.3),
+              padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.3),
               child: Expanded(
                 child: ElevatedButton(
                   onPressed: () {
@@ -95,57 +96,51 @@ class _AnasayfaState extends State<Anasayfa> {
                 ),
               ),
             ),
-
           ],
         ),
       ),
     );
   }
 
-  void _navigateToBluetoothPage(BuildContext context) {
-    Navigator.push(
+  void _navigateToBluetoothPage(BuildContext context) async {
+    BluetoothDevice? selectedDevice = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => BluetoothPage()),
-    ).then((selectedDevice) {
-      if (selectedDevice != null) {
-        _connectToDevice(selectedDevice);
-      }
-    });
+    );
+    if (selectedDevice != null) {
+      _connectToDevice(selectedDevice);
+    }
   }
 
   Future<void> _connectToDevice(BluetoothDevice device) async {
     try {
-      BluetoothConnection connection = await BluetoothConnection.toAddress(device.address);
+      connection = await BluetoothConnection.toAddress(device.address);
       setState(() {
-        stateD=('BAĞLANTI BAŞARILI');
+        stateD = 'BAĞLANTI BAŞARILI';
       });
 
-
-      connection.input?.listen((Uint8List data) {
+      connection!.input!.listen((Uint8List data) {
         setState(() {
           print('Gelen veri: ${ascii.decode(data)}');
         });
 
-        connection.output.add(data); // Sending data
+        connection!.output.add(data); // Sending data
 
         if (ascii.decode(data).contains('!')) {
-          connection.finish(); // Closing connection
+          connection!.finish(); // Closing connection
           setState(() {
-            stateD=('BAĞLANTI KESİLDİ');
+            stateD = 'BAĞLANTI KESİLDİ';
           });
-
         }
       }).onDone(() {
         setState(() {
-          stateD=('BAĞLANTI KESİLDİ');
+          stateD = 'BAĞLANTI KESİLDİ';
         });
-
       });
     } catch (exception) {
       setState(() {
-        stateD=('Bağlanamıyor');
+        stateD = 'Bağlanamıyor';
       });
-
     }
   }
 }
@@ -157,7 +152,6 @@ class BluetoothPage extends StatefulWidget {
 
 class _BluetoothPageState extends State<BluetoothPage> {
   List<BluetoothDevice> _devices = [];
-  var stateD;
 
   @override
   void initState() {
@@ -196,6 +190,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
     );
   }
 }
+
 void enableBluetooth() async {
   FlutterBluetoothSerial flutterBluetoothSerial = FlutterBluetoothSerial.instance;
 
@@ -214,4 +209,40 @@ void disableBluetooth() async {
   if (isEnabled != null && isEnabled) {
     await flutterBluetoothSerial.requestDisable();
   }
-} 
+}
+
+void sendBluetoothData(BuildContext context) async {
+  BluetoothConnection? connection;
+
+  BluetoothDevice? selectedDevice = await Navigator.of(context).push(
+    MaterialPageRoute(builder: (context) {
+      return BluetoothPage();
+    }),
+  );
+
+  if (selectedDevice != null) {
+    try {
+      connection = await BluetoothConnection.toAddress(selectedDevice.address);
+      print('Bağlantı kuruldu: ${selectedDevice.name}');
+
+      connection.output.add(Uint8List.fromList([0x01])); // Veriyi gönder
+
+      connection.input!.listen((Uint8List data) {
+        print('Gelen veri: ${ascii.decode(data)}');
+        connection!.output.add(data); // Veri gönderiliyor
+
+        if (ascii.decode(data).contains('!')) {
+          connection!.finish(); // Bağlantı kapatılıyor
+          print('Bağlantı kesildi');
+        }
+      }).onDone(() {
+        print('Bağlantı kesildi');
+      });
+
+      print('Veri gönderildi: ota ');
+
+    } catch (error) {
+      print('Bağlantı hatası: $error');
+    }
+  }
+}
