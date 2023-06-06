@@ -7,7 +7,6 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 void main() {
   runApp(const MyApp());
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -55,55 +54,89 @@ class _AnasayfaState extends State<Anasayfa> {
     final double ekranGenisligi = ekranBilgisi.size.width;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: const Text("YUSUF"),
+        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          "YUSUF",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: stateD,
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                disableBluetooth();
-              },
-              child: const Text("BLUETOOTH KAPAT"),
-            ),
-            Padding(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.1),
-              child: ElevatedButton(
-                onPressed: () {
-                  enableBluetooth();
-                },
-                child: const Text("BLUETOOTH AÇ"),
-              ),
-            ),
-            Padding(
-              padding:EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.1),
-              child: ElevatedButton(
-                onPressed: () {
-                  sendBluetoothData(context);
-                },
-                child: const Text("Veriyi Yolla"),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.1),
-              child: Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    _navigateToBluetoothPage(context);
-                  },
-                  child: Text("BLUETOOTH CİHAZLARINI LİSTELE"),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        stateD,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+
+
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          enableBluetooth();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          primary: Colors.blue,
+                          padding: EdgeInsets.all(16),
+                          minimumSize: Size(constraints.maxWidth, 0),
+                        ),
+                        child: const Text(
+                          "BLUETOOTH AÇ",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          _navigateToBluetoothPage(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          primary: Colors.blue,
+                          padding: EdgeInsets.all(16),
+                          minimumSize: Size(constraints.maxWidth, 0),
+                        ),
+                        child: const Text(
+                          "BLUETOOTH CİHAZLARINI LİSTELE",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          sendBluetoothData(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          primary: Colors.blue,
+                          padding: EdgeInsets.all(16),
+                          minimumSize: Size(constraints.maxWidth, 0),
+                        ),
+                        child: const Text(
+                          "OTA MODU",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -119,22 +152,30 @@ class _AnasayfaState extends State<Anasayfa> {
     }
   }
 
+  void _disconnectFromDevice() {
+    if (connection != null) {
+      connection!.finish();
+      connection = null;
+    }
+  }
+
   Future<void> _connectToDevice(BluetoothDevice device) async {
+    setState(() {
+      stateD = 'Durum: BAĞLANILIYOR...';
+    });
+
     try {
-      // Bluetooth cihaza bağlanılıyor
       connection = await BluetoothConnection.toAddress(device.address);
-      // Bağlantı başarılı olduğunda durum güncelleniyor
       setState(() {
-        stateD = 'Durum: BAĞLANTI BAŞARILI';
+        this.connection = connection;
+        stateD = 'Durum: ${device.name} - Cihazına Bağlantı Kuruldu';
       });
-// Gelen veriler dinleniyor
       connection!.input!.listen((Uint8List data) {
         setState(() {
           print('Gelen veri: ${ascii.decode(data)}');
         });
-// Gelen veri tekrar gönderiliyor
         connection!.output.add(data); // Sending data
-// Gelen veride '!' karakteri varsa bağlantı kapatılıyor
+
         if (ascii.decode(data).contains('!')) {
           connection!.finish(); // Closing connection
           // Bağlantı kapatıldığında durum güncelleniyor
@@ -173,10 +214,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
   Future<void> _getBluetoothDevices() async {
     try {
-      // Eşleştirilmiş Bluetooth cihazları alınıyor
       List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance.getBondedDevices();
 
-      // Cihaz listesi güncelleniyor
       setState(() {
         _devices = devices;
       });
@@ -189,82 +228,80 @@ class _BluetoothPageState extends State<BluetoothPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BLUETOOTH CİHAZLARINI LİSTELE'),
+        title: const Text('BLUETOOTH CİHAZLARI'),
       ),
-      body: ListView.builder(
-        itemCount: _devices.length,
-        itemBuilder: (BuildContext context, int index) {
-          return ListTile(
-            title: Text(_devices[index].name ?? ""),
-            onTap: () {
-              // Seçilen cihaz geri döndürülüyor
-              Navigator.pop(context, _devices[index]);
-            },
-          );
-        },
+      body: Stack(
+        children: [
+          ListView(
+            children: [
+              SizedBox(height: 16),
+              ..._devices.map((device) => ListTile(
+                title: Text(device.name ?? ''),
+                onTap: () {
+                  Navigator.pop(context, device);
+                },
+              )),
+            ],
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              padding: EdgeInsets.only(bottom: 16),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('Geri'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
 void enableBluetooth() async {
   FlutterBluetoothSerial flutterBluetoothSerial = FlutterBluetoothSerial.instance;
 
   bool? isEnabled = await flutterBluetoothSerial.isEnabled;
 
   if (isEnabled != null && !isEnabled) {
-    // Bluetooth'u etkinleştirmek için kullanıcıdan izin isteniyor
     await flutterBluetoothSerial.requestEnable();
   }
 }
 
-void disableBluetooth() async {
-  FlutterBluetoothSerial flutterBluetoothSerial = FlutterBluetoothSerial.instance;
 
-  bool? isEnabled = await flutterBluetoothSerial.isEnabled;
-
-  if (isEnabled != null && isEnabled) {
-    // Bluetooth'u devre dışı bırakmak için kullanıcıdan izin isteniyor
-    await flutterBluetoothSerial.requestDisable();
-  }
-}
 
 void sendBluetoothData(BuildContext context) async {
-  BluetoothConnection? connection; // Bluetooth bağlantısı için değişken tanımlanıyor
-
   BluetoothDevice? selectedDevice = await Navigator.of(context).push(
     MaterialPageRoute(builder: (context) {
       return BluetoothPage();
     }),
   );
 
-  // BluetoothPage'inden seçilen cihaz alınıyor
-
-  if (selectedDevice != null) {
-    try {
+  BluetoothConnection? connection;
+  try {
+    if (selectedDevice != null) {
       connection = await BluetoothConnection.toAddress(selectedDevice.address);
-      // Seçilen cihazın adresine bağlantı yapılıyor
       print('Bağlantı kuruldu: ${selectedDevice.name}');
 
       Uint8List dataToSend = Uint8List.fromList([0x01]);
-      connection.output.add(dataToSend); // Veri gönderiliyor
-      // 0x01 değerini veri olarak gönderir
+      connection.output.add(dataToSend);
 
       connection.input!.listen((Uint8List data) {
         print('Gelen veri: ${ascii.decode(data)}');
-        connection!.output.add(data); // Veri gönderiliyor
-        // Gelen veriyi ekrana yazdırır ve tekrar gönderir
+        connection!.output.add(data);
       }).onDone(() {
         print('Bağlantı kesildi');
-        // Veri alımı tamamlandığında bağlantı kesildiğini belirtir
       });
 
       print('Veri gönderildi: 0x01');
-      // Veri başarıyla gönderildiğini belirtir
-    } catch (error) {
-      print('Bağlantı hatası: $error');
-      // Bağlantı hatası durumunda hata mesajı yazdırılır
+    }
+  } catch (error) {
+    print('Bağlantı hatası: $error');
+  } finally {
+    if (connection != null) {
+      connection.finish();
     }
   }
 }
-
